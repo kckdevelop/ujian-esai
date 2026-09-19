@@ -67,6 +67,40 @@
         }
         .alert { border-radius: var(--radius); border: none; }
         footer { border-top: 1px solid var(--border); }
+        .pagination {
+            gap: 4px;
+            margin-bottom: 0;
+        }
+        .page-item .page-link {
+            border-radius: 8px !important;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 500;
+            padding: 0.45rem 0.85rem;
+            transition: all .15s ease-in-out;
+        }
+        .page-item .page-link:hover {
+            background-color: #e0e7ff;
+            color: var(--primary);
+            border-color: #c7d2fe;
+        }
+        .page-item.active .page-link {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-color: var(--primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(79,70,229,.3);
+        }
+        .page-item.disabled .page-link {
+            color: var(--muted);
+            background-color: #f8fafc;
+            border-color: var(--border);
+            opacity: 0.7;
+        }
+        .page-link svg {
+            width: 1rem;
+            height: 1rem;
+            vertical-align: middle;
+        }
     </style>
 
     @stack('styles')
@@ -114,6 +148,12 @@
                                     <i class="bi bi-grid-fill text-primary me-2"></i>Kelola Ujian
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item {{ request()->routeIs('admin.password.*') ? 'active' : '' }}" href="{{ route('admin.password.edit') }}">
+                                    <i class="bi bi-key-fill text-warning me-2"></i>Ubah Password
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form action="{{ route('logout') }}" method="POST">
                                     @csrf

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ExamController as AdminExamController;
+use App\Http\Controllers\Admin\PasswordController as AdminPasswordController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Student\ExamController as StudentExamController;
 use Illuminate\Support\Facades\Route;
@@ -58,4 +59,8 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
 
     // Regenerate Token
     Route::post('/exams/{exam}/regenerate-token', [AdminExamController::class, 'regenerateToken'])->name('exams.regenerate-token');
+
+    // Ubah Password Admin
+    Route::get('/password', [AdminPasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/password', [AdminPasswordController::class, 'update'])->name('password.update');
 });
