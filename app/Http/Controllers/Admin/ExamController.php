@@ -7,6 +7,7 @@ use App\Models\Exam;
 use App\Models\ExamImage;
 use App\Models\StudentExamSession;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -141,36 +142,106 @@ class ExamController extends Controller
      */
     public function uploadImages(Request $request, Exam $exam)
     {
-        $request->validate([
-            'images'                   => 'required|array|min:1',
-            'images.*'                 => 'required|image|mimes:jpeg,jpg,png,webp|max:5120',
-            'default_duration_minutes' => 'nullable|numeric|min:0.1|max:360',
-        ]);
+        try {
+            // Tangani multiple files atau single file (images[] atau image)
+            $files = [];
+            if ($request->hasFile('images')) {
+                $imagesInput = $request->file('images');
+                $files = is_array($imagesInput) ? $imagesInput : [$imagesInput];
+            } elseif ($request->hasFile('image')) {
+                $files = [$request->file('image')];
+            }
 
-        // Hitung durasi per soal (jika diisi)
-        $defaultSeconds = null;
-        if ($request->filled('default_duration_minutes') && (float) $request->default_duration_minutes > 0) {
-            $defaultSeconds = (int) round((float) $request->default_duration_minutes * 60);
-        }
+            if (empty($files)) {
+                $errorMsg = 'Tidak ada file gambar yang diupload atau ukuran file melebihi batas server (post_max_size).';
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMsg,
+                    ], 422);
+                }
+                return back()->with('error', $errorMsg);
+            }
 
-        // Tentukan sort_order berikutnya
-        $nextOrder = $exam->images()->max('sort_order') + 1;
-
-        $uploaded = 0;
-        foreach ($request->file('images') as $file) {
-            $path = $file->store('exam-images/' . $exam->id, 'public');
-
-            ExamImage::create([
-                'exam_id'          => $exam->id,
-                'image_path'       => $path,
-                'sort_order'       => $nextOrder++,
-                'duration_seconds' => $defaultSeconds,
+            $request->validate([
+                'default_duration_minutes' => 'nullable|numeric|min:0.1|max:360',
             ]);
-            $uploaded++;
-        }
 
-        $durMsg = $defaultSeconds ? " dengan durasi {$request->default_duration_minutes} menit per soal." : ".";
-        return back()->with('success', "{$uploaded} gambar soal berhasil diupload{$durMsg}");
+            // Hitung durasi per soal (jika diisi)
+            $defaultSeconds = null;
+            if ($request->filled('default_duration_minutes') && (float) $request->default_duration_minutes > 0) {
+                $defaultSeconds = (int) round((float) $request->default_duration_minutes * 60);
+            }
+
+            // Pastikan direktori tujuan tersedia
+            $directory = 'exam-images/' . $exam->id;
+            Storage::disk('public')->makeDirectory($directory);
+
+            // Tentukan sort_order berikutnya
+            $nextOrder = (int) ($exam->images()->max('sort_order') ?? 0) + 1;
+
+            $uploaded = 0;
+            $createdImages = [];
+
+            foreach ($files as $file) {
+                if (!$file || !$file->isValid()) {
+                    continue;
+                }
+
+                $path = $file->store($directory, 'public');
+
+                $newImage = ExamImage::create([
+                    'exam_id'          => $exam->id,
+                    'image_path'       => $path,
+                    'sort_order'       => $nextOrder++,
+                    'duration_seconds' => $defaultSeconds,
+                ]);
+
+                $createdImages[] = [
+                    'id'               => $newImage->id,
+                    'sort_order'       => $newImage->sort_order,
+                    'image_path'       => $path,
+                    'url'              => asset('storage/' . $path),
+                    'duration_seconds' => $newImage->duration_seconds,
+                ];
+                $uploaded++;
+            }
+
+            if ($uploaded === 0) {
+                $msg = 'File gambar tidak valid atau gagal disimpan.';
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $msg], 422);
+                }
+                return back()->with('error', $msg);
+            }
+
+            $durMsg = $defaultSeconds ? " dengan durasi {$request->default_duration_minutes} menit per soal." : ".";
+            $msg = "{$uploaded} gambar soal berhasil diupload{$durMsg}";
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success'  => true,
+                    'uploaded' => $uploaded,
+                    'images'   => $createdImages,
+                    'message'  => $msg,
+                ]);
+            }
+
+            return back()->with('success', $msg);
+        } catch (\Throwable $e) {
+            Log::error('Upload image failed for exam ' . $exam->id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terjadi kesalahan pada server saat upload: ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return back()->with('error', 'Terjadi kesalahan saat upload gambar: ' . $e->getMessage());
+        }
     }
 
     /**

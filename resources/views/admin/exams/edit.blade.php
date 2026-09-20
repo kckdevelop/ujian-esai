@@ -401,11 +401,29 @@
 
                     {{-- Preview area --}}
                     <div id="previewArea" class="mt-3 d-none">
-                        <div class="fw-semibold small mb-2 text-primary">
-                            <i class="bi bi-check-circle me-1"></i><span id="fileCount"></span> gambar siap diupload:
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="fw-semibold small text-primary">
+                                <i class="bi bi-check-circle me-1"></i><span id="fileCount"></span> gambar siap diupload:
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="resetUploadSelection()">
+                                <i class="bi bi-trash me-1"></i>Batal / Reset
+                            </button>
                         </div>
-                        <div id="previewGrid" class="d-flex gap-2 flex-wrap mb-3"></div>
-                        <button type="submit" class="btn btn-success w-100" style="border-radius:10px;font-weight:700;">
+                        <div id="previewGrid" class="d-flex gap-2 flex-wrap mb-3" style="max-height: 200px; overflow-y: auto; padding: 4px;"></div>
+
+                        {{-- Progress Area --}}
+                        <div id="uploadProgressArea" class="mb-3 d-none bg-light p-3 rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-bold text-dark" id="uploadStatusText">Mempersiapkan upload...</span>
+                                <span class="small fw-bold text-primary" id="uploadPercentText">0%</span>
+                            </div>
+                            <div class="progress mb-2" style="height: 12px; border-radius: 6px;">
+                                <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="uploadLog" class="small" style="max-height: 80px; overflow-y: auto;"></div>
+                        </div>
+
+                        <button type="submit" id="startUploadBtn" class="btn btn-success w-100" style="border-radius:10px;font-weight:700;">
                             <i class="bi bi-cloud-upload me-1"></i>Mulai Upload Gambar
                         </button>
                     </div>
@@ -771,10 +789,21 @@ if (uploadZone) {
     });
 }
 
+function resetUploadSelection() {
+    imageInput.value = '';
+    previewGrid.innerHTML = '';
+    previewArea.classList.add('d-none');
+    document.getElementById('uploadProgressArea').classList.add('d-none');
+    const startBtn = document.getElementById('startUploadBtn');
+    startBtn.disabled = false;
+    startBtn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Mulai Upload Gambar';
+}
+
 function showPreviews(files) {
     if (!files.length) return;
     previewGrid.innerHTML = '';
     previewArea.classList.remove('d-none');
+    document.getElementById('uploadProgressArea').classList.add('d-none');
     fileCountEl.textContent = files.length;
 
     Array.from(files).forEach((file, i) => {
@@ -794,6 +823,108 @@ function showPreviews(files) {
             previewGrid.appendChild(div);
         };
         reader.readAsDataURL(file);
+    });
+}
+
+// Intercept form submit to upload files sequentially (avoids PHP post_max_size / timeout limits)
+const uploadForm         = document.getElementById('uploadForm');
+const uploadProgressArea = document.getElementById('uploadProgressArea');
+const uploadProgressBar  = document.getElementById('uploadProgressBar');
+const uploadStatusText   = document.getElementById('uploadStatusText');
+const uploadPercentText  = document.getElementById('uploadPercentText');
+const uploadLog          = document.getElementById('uploadLog');
+const startUploadBtn     = document.getElementById('startUploadBtn');
+
+if (uploadForm) {
+    uploadForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const files = imageInput.files;
+        if (!files || files.length === 0) {
+            alert('Silakan pilih minimal 1 file gambar soal.');
+            return;
+        }
+
+        const defaultDuration = uploadForm.querySelector('[name="default_duration_minutes"]').value;
+        const totalFiles = files.length;
+        let successCount = 0;
+        let failedCount = 0;
+
+        startUploadBtn.disabled = true;
+        startUploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Mengupload...';
+        uploadProgressArea.classList.remove('d-none');
+        uploadProgressBar.classList.add('progress-bar-striped', 'progress-bar-animated');
+        uploadLog.innerHTML = '';
+
+        for (let i = 0; i < totalFiles; i++) {
+            const file = files[i];
+            const num = i + 1;
+            const percent = Math.round((i / totalFiles) * 100);
+
+            uploadStatusText.textContent = `Mengupload soal ${num} dari ${totalFiles} (${file.name})...`;
+            uploadProgressBar.style.width = percent + '%';
+            uploadPercentText.textContent = percent + '%';
+
+            const formData = new FormData();
+            formData.append('images[]', file);
+            formData.append('_token', CSRF_TOKEN);
+            if (defaultDuration) {
+                formData.append('default_duration_minutes', defaultDuration);
+            }
+
+            try {
+                const response = await fetch(uploadForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN
+                    },
+                    body: formData
+                });
+
+                const data = await response.json().catch(() => null);
+                if (response.ok && data && data.success) {
+                    successCount++;
+                } else {
+                    failedCount++;
+                    const errMsg = (data && data.message) ? data.message : `Error HTTP ${response.status}`;
+                    uploadLog.innerHTML += `<div class="text-danger small mb-1"><i class="bi bi-exclamation-triangle me-1"></i>${file.name}: ${errMsg}</div>`;
+                }
+            } catch (err) {
+                failedCount++;
+                uploadLog.innerHTML += `<div class="text-danger small mb-1"><i class="bi bi-x-circle me-1"></i>${file.name}: Gagal koneksi (${err.message})</div>`;
+            }
+
+            const currPercent = Math.round(((i + 1) / totalFiles) * 100);
+            uploadProgressBar.style.width = currPercent + '%';
+            uploadPercentText.textContent = currPercent + '%';
+        }
+
+        uploadProgressBar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+
+        if (failedCount === 0) {
+            uploadProgressBar.classList.remove('bg-warning');
+            uploadProgressBar.classList.add('bg-success');
+            uploadStatusText.innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>Berhasil! ${successCount} gambar soal selesai diupload. Memuat ulang...</span>`;
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
+        } else {
+            uploadProgressBar.classList.replace('bg-success', 'bg-warning');
+            uploadStatusText.innerHTML = `<span class="text-warning fw-bold">${successCount} berhasil diupload, ${failedCount} gagal.</span>`;
+            startUploadBtn.disabled = false;
+            startUploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>Upload Ulang';
+
+            if (!document.getElementById('reloadAfterUploadBtn')) {
+                const reloadBtn = document.createElement('button');
+                reloadBtn.id = 'reloadAfterUploadBtn';
+                reloadBtn.type = 'button';
+                reloadBtn.className = 'btn btn-primary btn-sm mt-2 w-100';
+                reloadBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Muat Ulang Halaman untuk Lihat Soal yang Berhasil';
+                reloadBtn.onclick = () => window.location.reload();
+                uploadProgressArea.appendChild(reloadBtn);
+            }
+        }
     });
 }
 
