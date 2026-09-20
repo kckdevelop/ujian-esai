@@ -217,7 +217,7 @@
             <a href="{{ route('admin.exams.sessions', $exam) }}" class="btn btn-outline-primary btn-sm" style="border-radius:8px;">
                 <i class="bi bi-people-fill me-1"></i>Detail Peserta ({{ $exam->sessions()->count() }})
             </a>
-            <a href="{{ route('student.exam.show', $exam->id) }}" target="_blank" class="btn btn-outline-secondary btn-sm" style="border-radius:8px;">
+            <a href="{{ route('admin.exams.preview', $exam) }}" target="_blank" class="btn btn-outline-secondary btn-sm" style="border-radius:8px;">
                 <i class="bi bi-eye me-1"></i>Pratinjau Ujian
             </a>
         </div>

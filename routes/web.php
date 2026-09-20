@@ -43,6 +43,7 @@ Route::prefix('admin')->name('admin.')->middleware('auth')->group(function () {
     Route::get('/exams/create', [AdminExamController::class, 'create'])->name('exams.create');
     Route::post('/exams', [AdminExamController::class, 'store'])->name('exams.store');
     Route::get('/exams/{exam}/edit', [AdminExamController::class, 'edit'])->name('exams.edit');
+    Route::get('/exams/{exam}/preview', [AdminExamController::class, 'preview'])->name('exams.preview');
     Route::put('/exams/{exam}', [AdminExamController::class, 'update'])->name('exams.update');
     Route::delete('/exams/{exam}', [AdminExamController::class, 'destroy'])->name('exams.destroy');
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Lembar Ujian — {{ $exam->title ?? 'Ujian Online' }}</title>
+    <title>{{ (isset($isPreview) && $isPreview ? '[Pratinjau] ' : '') }}Lembar Ujian — {{ $exam->title ?? 'Ujian Online' }}</title>
 
     <!-- Bootstrap Icons only (minimal) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -423,9 +423,19 @@
 
 {{-- Fullscreen Prompt (muncul pertama kali) --}}
 <div id="fullscreen-prompt">
-    <div style="font-size:5rem;">🖥️</div>
-    <h2>Siap Memulai Ujian?</h2>
-    <p>Ujian akan ditampilkan dalam mode <strong>Layar Penuh</strong>. Pastikan kamu tidak keluar dari halaman ini selama ujian berlangsung.</p>
+    @if(isset($isPreview) && $isPreview)
+        <div style="font-size:4rem;">👁️</div>
+        <div style="background:#f59e0b;color:#000;font-size:.78rem;font-weight:800;padding:3px 12px;border-radius:20px;display:inline-block;margin-bottom:8px;">
+            MODE PRATINJAU (ADMIN)
+        </div>
+        <h2>Pratinjau Lembar Soal Siswa</h2>
+        <p>Anda melihat tampilan persis seperti yang akan dilihat siswa di ruang ujian tanpa perlu memasukkan token atau mencatat sesi peserta.</p>
+    @else
+        <div style="font-size:5rem;">🖥️</div>
+        <h2>Siap Memulai Ujian?</h2>
+        <p>Ujian akan ditampilkan dalam mode <strong>Layar Penuh</strong>. Pastikan kamu tidak keluar dari halaman ini selama ujian berlangsung.</p>
+    @endif
+
     <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:1rem 1.5rem;max-width:380px;">
         <div style="font-size:.85rem;color:rgba(248,250,252,.6);">Paket Ujian</div>
         <div style="font-weight:800;font-size:1.2rem;">{{ $exam->title }}</div>
@@ -434,10 +444,18 @@
             {{ $exam->images->count() }} halaman soal
         </div>
     </div>
-    <button id="btn-enter-fullscreen">
-        <i class="bi bi-fullscreen"></i> Masuk & Mulai Ujian
+
+    <button id="btn-enter-fullscreen" @if(isset($isPreview) && $isPreview) style="background:linear-gradient(135deg, #10b981, #059669);" @endif>
+        <i class="bi bi-fullscreen"></i> {{ (isset($isPreview) && $isPreview) ? 'Mulai Pratinjau Ujian' : 'Masuk & Mulai Ujian' }}
     </button>
-    <div style="font-size:.78rem;color:rgba(248,250,252,.35);">Tekan Esc atau F11 tidak dianjurkan selama ujian</div>
+
+    @if(isset($isPreview) && $isPreview)
+        <a href="{{ route('admin.exams.edit', $exam) }}" style="color:rgba(248,250,252,.75);font-size:.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-top:6px;">
+            <i class="bi bi-arrow-left"></i> Kembali ke Edit Paket Ujian
+        </a>
+    @else
+        <div style="font-size:.78rem;color:rgba(248,250,252,.35);">Tekan Esc atau F11 tidak dianjurkan selama ujian</div>
+    @endif
 </div>
 
 {{-- ===== EXAM UI (hidden until fullscreen) ===== --}}
@@ -455,11 +473,20 @@
                 @endif
             </div>
             <div id="exam-info">
-                @if($examSession->room)
-                    <i class="bi bi-door-open-fill text-info me-1"></i>Ruang: <strong>{{ $examSession->room }}</strong>
-                @endif
-                @if($examSession->student_name)
-                    &bull; Peserta: <strong>{{ $examSession->student_name }}</strong>
+                @if(isset($isPreview) && $isPreview)
+                    <span style="background:#f59e0b;color:#000;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:4px;margin-right:6px;">
+                        <i class="bi bi-eye-fill me-1"></i>PRATINJAU
+                    </span>
+                    <a href="{{ route('admin.exams.edit', $exam) }}" style="color:#93c5fd;font-size:.8rem;text-decoration:none;">
+                        <i class="bi bi-box-arrow-left me-1"></i>Keluar Pratinjau
+                    </a>
+                @else
+                    @if(isset($examSession) && $examSession->room)
+                        <i class="bi bi-door-open-fill text-info me-1"></i>Ruang: <strong>{{ $examSession->room }}</strong>
+                    @endif
+                    @if(isset($examSession) && $examSession->student_name)
+                        &bull; Peserta: <strong>{{ $examSession->student_name }}</strong>
+                    @endif
                 @endif
             </div>
         </div>
@@ -532,7 +559,7 @@
         </div>
 
         <button id="btn-finish" onclick="showConfirmModal()">
-            <i class="bi bi-check2-circle"></i> Selesai
+            <i class="bi bi-check2-circle"></i> {{ (isset($isPreview) && $isPreview) ? 'Tutup Pratinjau' : 'Selesai' }}
         </button>
     </div>
 
@@ -541,15 +568,15 @@
 {{-- ===== MODAL: Konfirmasi Selesai ===== --}}
 <div class="exam-modal-overlay" id="modal-confirm">
     <div class="exam-modal">
-        <div class="modal-icon">⚠️</div>
-        <h3>Selesaikan Ujian?</h3>
-        <p>Apakah kamu yakin ingin mengakhiri ujian sekarang? Tindakan ini tidak dapat dibatalkan.</p>
+        <div class="modal-icon">{{ (isset($isPreview) && $isPreview) ? '👁️' : '⚠️' }}</div>
+        <h3>{{ (isset($isPreview) && $isPreview) ? 'Selesai Pratinjau?' : 'Selesaikan Ujian?' }}</h3>
+        <p>{{ (isset($isPreview) && $isPreview) ? 'Apakah Anda ingin keluar dari mode pratinjau dan kembali ke halaman edit paket ujian?' : 'Apakah kamu yakin ingin mengakhiri ujian sekarang? Tindakan ini tidak dapat dibatalkan.' }}</p>
         <div class="btn-group-modal">
             <button class="btn-modal-secondary" onclick="hideConfirmModal()">
-                <i class="bi bi-arrow-left"></i> Kembali
+                <i class="bi bi-arrow-left"></i> {{ (isset($isPreview) && $isPreview) ? 'Lanjutkan Lihat' : 'Kembali' }}
             </button>
-            <button class="btn-modal-danger" onclick="finishExam('manual')">
-                <i class="bi bi-check2-circle"></i> Ya, Selesaikan
+            <button class="{{ (isset($isPreview) && $isPreview) ? 'btn-modal-primary' : 'btn-modal-danger' }}" onclick="finishExam('manual')">
+                <i class="bi bi-check2-circle"></i> {{ (isset($isPreview) && $isPreview) ? 'Ya, Tutup Pratinjau' : 'Ya, Selesaikan' }}
             </button>
         </div>
     </div>
@@ -559,11 +586,11 @@
 <div class="exam-modal-overlay" id="modal-timeup">
     <div class="exam-modal">
         <div class="modal-icon">⏰</div>
-        <h3>Waktu Habis!</h3>
-        <p>Waktu ujian telah berakhir. Ujian kamu akan diselesaikan secara otomatis.</p>
+        <h3>{{ (isset($isPreview) && $isPreview) ? 'Waktu Pratinjau Habis!' : 'Waktu Habis!' }}</h3>
+        <p>{{ (isset($isPreview) && $isPreview) ? 'Simulasi waktu ujian telah berakhir. Klik tombol di bawah untuk kembali ke halaman edit ujian.' : 'Waktu ujian telah berakhir. Ujian kamu akan diselesaikan secara otomatis.' }}</p>
         <div class="btn-group-modal">
             <button class="btn-modal-primary" onclick="finishExam('auto')">
-                <i class="bi bi-door-open"></i> OK, Keluar
+                <i class="bi bi-door-open"></i> {{ (isset($isPreview) && $isPreview) ? 'Kembali ke Edit Ujian' : 'OK, Keluar' }}
             </button>
         </div>
     </div>
@@ -576,6 +603,8 @@ const FINISH_URL        = "{{ route('student.exam.finish', $exam->id) }}";
 const FINISHED_URL      = "{{ route('student.exam.finished', $exam->id) }}";
 const CSRF_TOKEN        = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 const TOTAL_SLIDES      = {{ $exam->images->count() }};
+const IS_PREVIEW        = {{ (isset($isPreview) && $isPreview) ? 'true' : 'false' }};
+const ADMIN_EDIT_URL    = "{{ route('admin.exams.edit', $exam) }}";
 
 // Data durasi per soal (dalam detik, 0 = tidak ada batas)
 const SLIDE_DURATIONS = [
@@ -601,7 +630,9 @@ document.getElementById('btn-enter-fullscreen').addEventListener('click', functi
         || el.webkitRequestFullscreen
         || el.mozRequestFullScreen
         || el.msRequestFullscreen;
-    if (req) req.call(el);
+    if (req) {
+        req.call(el).catch(() => {});
+    }
 
     fullscreenPrompt.style.display = 'none';
     examUI.style.display = 'block';
@@ -614,6 +645,7 @@ document.getElementById('btn-enter-fullscreen').addEventListener('click', functi
 document.addEventListener('fullscreenchange', handleFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 function handleFullscreenChange() {
+    if (IS_PREVIEW) return; // Jangan memunculkan alert di mode pratinjau admin
     if (!document.fullscreenElement && !document.webkitFullscreenElement && !examFinished) {
         setTimeout(() => {
             alert('⚠️ Peringatan: Keluar dari layar penuh tidak diperbolehkan selama ujian! Klik OK untuk kembali ke mode penuh.');
@@ -852,8 +884,14 @@ function finishExam(reason) {
     clearInterval(slideTimerInterval);
 
     // Keluar fullscreen
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen().catch(() => {});
+
+    // Jika mode pratinjau, kembali langsung ke halaman admin edit
+    if (IS_PREVIEW) {
+        window.location.href = ADMIN_EDIT_URL;
+        return;
+    }
 
     // Kirim ke server via fetch
     fetch(FINISH_URL, {

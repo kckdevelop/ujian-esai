@@ -97,6 +97,21 @@ class ExamController extends Controller
     }
 
     /**
+     * Pratinjau tampilan lembar soal siswa oleh Admin (tanpa perlu token/sesi).
+     */
+    public function preview(Exam $exam)
+    {
+        $exam->load(['images' => function ($q) {
+            $q->orderBy('sort_order');
+        }]);
+
+        $remainingSeconds = (int) (($exam->duration_minutes ?? 60) * 60);
+        $isPreview        = true;
+
+        return view('student.show', compact('exam', 'remainingSeconds', 'isPreview'));
+    }
+
+    /**
      * Menyimpan perubahan paket ujian.
      */
     public function update(Request $request, Exam $exam)

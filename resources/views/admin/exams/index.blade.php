@@ -222,6 +222,10 @@
                                     <i class="bi bi-people-fill"></i>
                                     <span>Peserta ({{ $exam->sessions_count }})</span>
                                 </a>
+                                <a href="{{ route('admin.exams.preview', $exam) }}" target="_blank"
+                                   class="btn btn-outline-info btn-action" title="Pratinjau Lembar Soal Siswa">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                                 <a href="{{ route('admin.exams.edit', $exam) }}"
                                    class="btn btn-outline-secondary btn-action" title="Edit & Kelola Soal">
                                     <i class="bi bi-pencil"></i>
