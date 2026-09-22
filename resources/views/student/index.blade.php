@@ -457,25 +457,21 @@ document.getElementById('token').addEventListener('input', function () {
     tokenModal.show();
 @endif
 
-// Live Server Clock (WIB)
+// Live Clock (Real-time per detik sesuai jam laptop / device)
 (function() {
     const clockEl = document.getElementById('liveServerClock');
     if (!clockEl) return;
-    const serverStartTime = {{ now()->getTimestamp() * 1000 }};
-    const clientStartTime = Date.now();
-    const formatter = new Intl.DateTimeFormat('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
 
-    setInterval(function() {
-        const elapsed = Date.now() - clientStartTime;
-        const current = new Date(serverStartTime + elapsed);
-        clockEl.textContent = formatter.format(current).replace(/\./g, ':');
-    }, 1000);
+    function updateClock() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        clockEl.textContent = hours + ':' + minutes + ':' + seconds;
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
 })();
 </script>
 @endpush
