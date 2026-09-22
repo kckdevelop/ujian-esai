@@ -224,8 +224,8 @@
                 <div class="stat-label">Tingkat Kelas</div>
             </div>
             <div class="col-4 stat-item">
-                <div class="stat-number">{{ now()->format('H:i') }}</div>
-                <div class="stat-label">Waktu Server</div>
+                <div class="stat-number" id="liveServerClock">{{ now()->format('H:i:s') }}</div>
+                <div class="stat-label"><i class="bi bi-clock me-1"></i>Waktu Server</div>
             </div>
         </div>
     </div>
@@ -456,5 +456,26 @@ document.getElementById('token').addEventListener('input', function () {
     const tokenModal = new bootstrap.Modal(document.getElementById('modalToken'));
     tokenModal.show();
 @endif
+
+// Live Server Clock (WIB)
+(function() {
+    const clockEl = document.getElementById('liveServerClock');
+    if (!clockEl) return;
+    const serverStartTime = {{ now()->getTimestamp() * 1000 }};
+    const clientStartTime = Date.now();
+    const formatter = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
+    setInterval(function() {
+        const elapsed = Date.now() - clientStartTime;
+        const current = new Date(serverStartTime + elapsed);
+        clockEl.textContent = formatter.format(current).replace(/\./g, ':');
+    }, 1000);
+})();
 </script>
 @endpush
